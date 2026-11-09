@@ -12,7 +12,7 @@ import {
   Share2,
   ShieldAlert,
 } from "lucide-react";
-import { deleteSession, reportGeoJsonUrl, reportPdfUrl } from "@/lib/api";
+import { deleteSession, isUsingGpuBackend, reportGeoJsonUrl, reportPdfUrl } from "@/lib/api";
 import { useT } from "@/lib/i18n";
 import { useAppStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
@@ -50,10 +50,7 @@ export function ChatHeader({
 
   useEffect(() => {
     setMounted(true);
-    if (typeof window !== "undefined") {
-      const custom = localStorage.getItem("satquery_custom_gpu_url");
-      setIsGpuConnected(Boolean(custom && custom.trim()));
-    }
+    setIsGpuConnected(isUsingGpuBackend());
   }, [gpuModalOpen]);
   const { t } = useT();
   const { resolvedTheme } = useTheme();

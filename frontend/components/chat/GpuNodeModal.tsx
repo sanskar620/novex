@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Cpu, Server, Check, X, ExternalLink, Zap } from "lucide-react";
-import { DEFAULT_RENDER_URL, getEffectiveApiUrl, setCustomGpuUrl } from "@/lib/api";
+import { PERMANENT_RENDER_URL, getEffectiveApiUrl, isUsingGpuBackend, setCustomGpuUrl } from "@/lib/api";
 import { useTheme } from "@/lib/theme";
 
 interface GpuNodeModalProps {
@@ -20,7 +20,7 @@ export function GpuNodeModal({ isOpen, onClose }: GpuNodeModalProps) {
   useEffect(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("satquery_custom_gpu_url") || "";
-      setGpuUrl(saved);
+      setGpuUrl(saved === "render" ? "" : saved);
       setCurrentActive(getEffectiveApiUrl());
     }
   }, [isOpen]);
@@ -28,7 +28,11 @@ export function GpuNodeModal({ isOpen, onClose }: GpuNodeModalProps) {
   if (!isOpen) return null;
 
   function handleSave() {
-    setCustomGpuUrl(gpuUrl);
+    if (!gpuUrl.trim()) {
+      setCustomGpuUrl(null);
+    } else {
+      setCustomGpuUrl(gpuUrl);
+    }
     setIsSaved(true);
     setCurrentActive(getEffectiveApiUrl());
     setTimeout(() => {
@@ -40,9 +44,9 @@ export function GpuNodeModal({ isOpen, onClose }: GpuNodeModalProps) {
   }
 
   function handleReset() {
-    setCustomGpuUrl(null);
+    setCustomGpuUrl("render");
     setGpuUrl("");
-    setCurrentActive(DEFAULT_RENDER_URL);
+    setCurrentActive(PERMANENT_RENDER_URL);
     setIsSaved(true);
     setTimeout(() => {
       setIsSaved(false);
@@ -51,7 +55,7 @@ export function GpuNodeModal({ isOpen, onClose }: GpuNodeModalProps) {
     }, 600);
   }
 
-  const isGpuActive = currentActive !== DEFAULT_RENDER_URL;
+  const isGpuActive = isUsingGpuBackend();
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">

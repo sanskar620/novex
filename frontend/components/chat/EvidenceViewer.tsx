@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Download, Eye, Layers, Maximize2, X, ZoomIn, ZoomOut, RotateCcw, MapPin, Check } from "lucide-react";
-import { evidenceImageUrl, reportGeoJsonUrl, reportPdfUrl } from "@/lib/api";
+import { PERMANENT_RENDER_URL, evidenceImageUrl, reportGeoJsonUrl, reportPdfUrl } from "@/lib/api";
 import { useAppStore } from "@/lib/store";
 import type { Evidence, EvidenceData } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -308,7 +308,13 @@ export function EvidenceViewer({ evidence, executionId, onOpenModal }: EvidenceV
                     className="max-h-full max-w-full object-contain rounded-lg transition-transform duration-200 group-hover:scale-[1.01]"
                     style={{ imageRendering: "auto" }}
                     onError={(e) => {
-                      (e.target as HTMLElement).style.display = "none";
+                      const target = e.currentTarget;
+                      if (target.dataset.triedFallback !== "true" && ev.storage_key) {
+                        target.dataset.triedFallback = "true";
+                        target.src = `${PERMANENT_RENDER_URL}/storage/${ev.storage_key}`;
+                      } else {
+                        target.style.display = "none";
+                      }
                     }}
                   />
                   <div className="absolute top-3 right-3 flex items-center gap-1.5 opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">

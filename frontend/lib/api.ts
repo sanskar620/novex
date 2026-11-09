@@ -7,25 +7,37 @@ import type {
   TransparencyResponse,
 } from "./types";
 
-export const DEFAULT_RENDER_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "https://satquery-backend-09p3.onrender.com/api/v1";
+export const PERMANENT_RENDER_URL = "https://satquery-backend-09p3.onrender.com/api/v1";
+export const DEFAULT_RENDER_URL = PERMANENT_RENDER_URL;
+
+export function sanitizeApiUrl(url: string | undefined | null): string | null {
+  if (!url || !url.trim()) return null;
+  const cleaned = url.trim().replace(/\/+$/, "");
+  return cleaned.endsWith("/api/v1") ? cleaned : `${cleaned}/api/v1`;
+}
 
 export function getEffectiveApiUrl(): string {
   if (typeof window !== "undefined") {
     try {
       const customGpu = localStorage.getItem("satquery_custom_gpu_url");
-      if (customGpu && customGpu.trim()) {
-        const cleaned = customGpu.trim().replace(/\/+$/, "");
-        return cleaned.endsWith("/api/v1") ? cleaned : `${cleaned}/api/v1`;
+      if (customGpu === "render" || customGpu === "RENDER_DEFAULT") {
+        return PERMANENT_RENDER_URL;
       }
+      const cleaned = sanitizeApiUrl(customGpu);
+      if (cleaned) return cleaned;
     } catch {}
   }
-  const envGpu = process.env.NEXT_PUBLIC_GPU_API_BASE_URL;
-  if (envGpu && envGpu.trim()) {
-    const cleaned = envGpu.trim().replace(/\/+$/, "");
-    return cleaned.endsWith("/api/v1") ? cleaned : `${cleaned}/api/v1`;
-  }
-  return DEFAULT_RENDER_URL;
+  const envGpu = sanitizeApiUrl(process.env.NEXT_PUBLIC_GPU_API_BASE_URL);
+  if (envGpu) return envGpu;
+
+  const envApi = sanitizeApiUrl(process.env.NEXT_PUBLIC_API_BASE_URL);
+  if (envApi && envApi !== PERMANENT_RENDER_URL) return envApi;
+
+  return PERMANENT_RENDER_URL;
+}
+
+export function isUsingGpuBackend(): boolean {
+  return getEffectiveApiUrl() !== PERMANENT_RENDER_URL;
 }
 
 export function setCustomGpuUrl(url: string | null): void {
@@ -37,12 +49,8 @@ export function setCustomGpuUrl(url: string | null): void {
   }
 }
 
-// The agent/model pipeline runs real CPU inference with no GPU on the
-// current deployment target -- a single query can legitimately take 1-2+
-// minutes (measured: ~60s for a trivial text-only query on a warm model).
-// No timeout at all risks a genuinely hung request spinning forever, so
-// this caps it generously rather than leaving it unbounded.
-export const apiClient = axios.create({ baseURL: DEFAULT_RENDER_URL, timeout: 6 * 60 * 1000 });
+// Generous timeout for deep neural inference
+export const apiClient = axios.create({ baseURL: PERMANENT_RENDER_URL, timeout: 6 * 60 * 1000 });
 
 apiClient.interceptors.request.use((config) => {
   config.baseURL = getEffectiveApiUrl();
@@ -54,15 +62,21 @@ apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
-    const currentBase = getEffectiveApiUrl();
+    const currentBase = originalRequest?.baseURL || getEffectiveApiUrl();
     if (
       originalRequest &&
       !originalRequest._isRetry &&
-      currentBase !== DEFAULT_RENDER_URL &&
-      (error.code === "ECONNABORTED" || error.code === "ERR_NETWORK" || !error.response || error.response.status >= 500)
+      currentBase !== PERMANENT_RENDER_URL &&
+      (error.code === "ECONNABORTED" ||
+        error.code === "ERR_NETWORK" ||
+        !error.response ||
+        error.response.status >= 500)
     ) {
+      console.warn(
+        `[SatQuery Failover] GPU backend (${currentBase}) failed or timed out. Silently falling back to 24/7 Render backend (${PERMANENT_RENDER_URL})`
+      );
       originalRequest._isRetry = true;
-      originalRequest.baseURL = DEFAULT_RENDER_URL;
+      originalRequest.baseURL = PERMANENT_RENDER_URL;
       return axios(originalRequest);
     }
     return Promise.reject(error);

@@ -31,8 +31,22 @@ if _is_sqlite:
 
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
 
+_tables_initialized = False
+
+
+def init_db_tables() -> None:
+    global _tables_initialized
+    if not _tables_initialized:
+        try:
+            from app.db.base import Base
+            Base.metadata.create_all(bind=engine)
+            _tables_initialized = True
+        except Exception:
+            pass
+
 
 def get_db() -> Generator[Session, None, None]:
+    init_db_tables()
     db = SessionLocal()
     try:
         yield db

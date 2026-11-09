@@ -16,6 +16,8 @@ def health(db: Session = Depends(get_db)) -> dict:
     components: dict[str, str] = {}
 
     try:
+        from app.db.session import init_db_tables
+        init_db_tables()
         db.execute(text("SELECT 1"))
         components["database"] = "healthy"
     except Exception as exc:  # noqa: BLE001

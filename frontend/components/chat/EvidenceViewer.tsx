@@ -221,6 +221,40 @@ export function EvidenceViewer({ evidence, executionId, onOpenModal }: EvidenceV
   const evidenceList = evidence as Evidence[];
   if (evidenceList.length === 0) return null;
 
+  function handleDownloadGeoJson(e: React.MouseEvent) {
+    const geoFeatures = evidenceList
+      .filter((ev) => ev.geo_geometry)
+      .map((ev) => ({
+        type: "Feature",
+        geometry: ev.geo_geometry,
+        properties: {
+          kind: ev.type,
+          label: ev.label,
+          score: ev.score,
+          area_m2: ev.area_m2,
+          area_percentage: ev.area_percentage,
+        },
+      }));
+
+    if (geoFeatures.length > 0) {
+      e.preventDefault();
+      const featureCollection = {
+        type: "FeatureCollection",
+        features: geoFeatures,
+        crs: { type: "name", properties: { name: "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+      };
+      const blob = new Blob([JSON.stringify(featureCollection, null, 2)], {
+        type: "application/geo+json",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `satquery_${(executionId || "export").substring(0, 12)}.geojson`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+  }
+
   return (
     <div className="space-y-3 pt-2">
       <div className="flex items-center justify-between text-xs font-mono text-neutral-400">
@@ -234,7 +268,7 @@ export function EvidenceViewer({ evidence, executionId, onOpenModal }: EvidenceV
               href={reportPdfUrl(executionId)}
               target="_blank"
               rel="noreferrer"
-              className="hover:text-white transition-colors flex items-center gap-1"
+              className="hover:text-white transition-colors flex items-center gap-1 cursor-pointer"
             >
               <span>PDF Dossier</span>
               <Download className="h-3 w-3" />
@@ -242,9 +276,10 @@ export function EvidenceViewer({ evidence, executionId, onOpenModal }: EvidenceV
             <span>•</span>
             <a
               href={reportGeoJsonUrl(executionId)}
+              onClick={handleDownloadGeoJson}
               target="_blank"
               rel="noreferrer"
-              className="hover:text-white transition-colors flex items-center gap-1"
+              className="hover:text-white transition-colors flex items-center gap-1 cursor-pointer"
             >
               <span>GeoJSON</span>
               <Download className="h-3 w-3" />

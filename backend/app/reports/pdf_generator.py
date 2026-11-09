@@ -166,7 +166,8 @@ def generate_analysis_pdf(db: Session, execution: Execution) -> bytes:
     elements.append(Paragraph(f"Status: {execution.status}", styles["Normal"]))
     if execution.latency_ms is not None:
         elements.append(Paragraph(f"Latency: {execution.latency_ms} ms", styles["Normal"]))
-    elements.append(Paragraph(f"Timestamp: {execution.created_at.isoformat()}", styles["Normal"]))
+    created_ts = execution.created_at.isoformat() if execution.created_at else datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')
+    elements.append(Paragraph(f"Timestamp: {created_ts}", styles["Normal"]))
 
     doc.build(elements)
     return buffer.getvalue()

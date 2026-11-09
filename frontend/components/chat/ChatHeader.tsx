@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Cpu,
   Download,
@@ -18,6 +18,7 @@ import { useAppStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { useTheme } from "@/lib/theme";
+import { GpuNodeModal } from "./GpuNodeModal";
 
 interface ChatHeaderProps {
   onToggleMobileSidebar: () => void;
@@ -43,6 +44,15 @@ export function ChatHeader({
   const resetConversationState = useAppStore((s) => s.resetConversationState);
   const setSessionId = useAppStore((s) => s.setSessionId);
   const [optionsOpen, setOptionsOpen] = useState(false);
+  const [gpuModalOpen, setGpuModalOpen] = useState(false);
+  const [isGpuConnected, setIsGpuConnected] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const custom = localStorage.getItem("satquery_custom_gpu_url");
+      setIsGpuConnected(Boolean(custom && custom.trim()));
+    }
+  }, [gpuModalOpen]);
   const { t } = useT();
   const { resolvedTheme } = useTheme();
   const isLight = resolvedTheme === "light";
@@ -122,11 +132,29 @@ export function ChatHeader({
 
       {/* Right Controls */}
       <div className="relative flex items-center gap-2 text-xs font-sans">
-        {/* Model Tag */}
-        <div className={`hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-mono shadow-subtle ${isLight ? "bg-[#ede8df] border-black/10 text-neutral-600" : "bg-[#121212] border-[#262626] text-[#888888]"}`}>
-          <Cpu className={`w-3.5 h-3.5 ${isLight ? "text-neutral-600" : "text-[#888888]"}`} />
-          <span>GeoChat • Sentinel Core</span>
-        </div>
+        {/* Backend Node Selector */}
+        <button
+          type="button"
+          onClick={() => setGpuModalOpen(true)}
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-[11px] font-mono shadow-subtle transition-all cursor-pointer ${
+            isGpuConnected
+              ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20"
+              : isLight
+              ? "bg-[#ede8df] hover:bg-black/5 border-black/10 text-neutral-700"
+              : "bg-[#141414] hover:bg-white/5 border-white/10 text-neutral-300"
+          }`}
+          title="Click to toggle or connect Kaggle GPU / Cloudflare URL"
+        >
+          <span
+            className={`w-1.5 h-1.5 rounded-full ${
+              isGpuConnected ? "bg-emerald-400 animate-pulse" : "bg-blue-400"
+            }`}
+          />
+          <Cpu className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">
+            {isGpuConnected ? "GPU Node (Kaggle)" : "24/7 Node (Render)"}
+          </span>
+        </button>
 
         {/* Theme Toggle (Default / Light / Dark) */}
         <ThemeToggle />
@@ -246,6 +274,7 @@ export function ChatHeader({
           )}
         </div>
       </div>
+      <GpuNodeModal isOpen={gpuModalOpen} onClose={() => setGpuModalOpen(false)} />
     </header>
   );
 }

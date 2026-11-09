@@ -7,14 +7,67 @@ import type {
   TransparencyResponse,
 } from "./types";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api/v1";
+export const DEFAULT_RENDER_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL ?? "https://satquery-backend-09p3.onrender.com/api/v1";
+
+export function getEffectiveApiUrl(): string {
+  if (typeof window !== "undefined") {
+    try {
+      const customGpu = localStorage.getItem("satquery_custom_gpu_url");
+      if (customGpu && customGpu.trim()) {
+        const cleaned = customGpu.trim().replace(/\/+$/, "");
+        return cleaned.endsWith("/api/v1") ? cleaned : `${cleaned}/api/v1`;
+      }
+    } catch {}
+  }
+  const envGpu = process.env.NEXT_PUBLIC_GPU_API_BASE_URL;
+  if (envGpu && envGpu.trim()) {
+    const cleaned = envGpu.trim().replace(/\/+$/, "");
+    return cleaned.endsWith("/api/v1") ? cleaned : `${cleaned}/api/v1`;
+  }
+  return DEFAULT_RENDER_URL;
+}
+
+export function setCustomGpuUrl(url: string | null): void {
+  if (typeof window === "undefined") return;
+  if (!url || !url.trim()) {
+    localStorage.removeItem("satquery_custom_gpu_url");
+  } else {
+    localStorage.setItem("satquery_custom_gpu_url", url.trim());
+  }
+}
 
 // The agent/model pipeline runs real CPU inference with no GPU on the
 // current deployment target -- a single query can legitimately take 1-2+
 // minutes (measured: ~60s for a trivial text-only query on a warm model).
 // No timeout at all risks a genuinely hung request spinning forever, so
 // this caps it generously rather than leaving it unbounded.
-export const apiClient = axios.create({ baseURL: API_BASE_URL, timeout: 6 * 60 * 1000 });
+export const apiClient = axios.create({ baseURL: DEFAULT_RENDER_URL, timeout: 6 * 60 * 1000 });
+
+apiClient.interceptors.request.use((config) => {
+  config.baseURL = getEffectiveApiUrl();
+  return config;
+});
+
+// Auto-failover: if GPU server is offline or fails, automatically retry on Render 24/7 backend
+apiClient.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+    const currentBase = getEffectiveApiUrl();
+    if (
+      originalRequest &&
+      !originalRequest._isRetry &&
+      currentBase !== DEFAULT_RENDER_URL &&
+      (error.code === "ECONNABORTED" || error.code === "ERR_NETWORK" || !error.response || error.response.status >= 500)
+    ) {
+      originalRequest._isRetry = true;
+      originalRequest.baseURL = DEFAULT_RENDER_URL;
+      return axios(originalRequest);
+    }
+    return Promise.reject(error);
+  }
+);
 
 export async function createSession(title?: string): Promise<SessionSummary> {
   const { data } = await apiClient.post<SessionSummary>("/sessions", { title });
@@ -75,15 +128,15 @@ export async function getTransparency(executionId: string): Promise<Transparency
 }
 
 export function evidenceImageUrl(storageKey: string): string {
-  return `${API_BASE_URL}/storage/${storageKey}`;
+  return `${getEffectiveApiUrl()}/storage/${storageKey}`;
 }
 
 export function reportPdfUrl(executionId: string): string {
-  return `${API_BASE_URL}/analysis/${executionId}/report`;
+  return `${getEffectiveApiUrl()}/analysis/${executionId}/report`;
 }
 
 export function reportGeoJsonUrl(executionId: string): string {
-  return `${API_BASE_URL}/analysis/${executionId}/geojson`;
+  return `${getEffectiveApiUrl()}/analysis/${executionId}/geojson`;
 }
 
 export interface ModelRegistryEntry {

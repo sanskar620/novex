@@ -25,3 +25,4 @@ EXPOSE 8000
 
 # Start server using dynamic PORT environment variable (supports Render, Railway, Fly.io)
 CMD sh -c "uvicorn app.main:app --host 0.0.0.0 --port \${PORT:-8000}"
+

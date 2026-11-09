@@ -46,8 +46,10 @@ export function ChatHeader({
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [gpuModalOpen, setGpuModalOpen] = useState(false);
   const [isGpuConnected, setIsGpuConnected] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     if (typeof window !== "undefined") {
       const custom = localStorage.getItem("satquery_custom_gpu_url");
       setIsGpuConnected(Boolean(custom && custom.trim()));
@@ -136,21 +138,24 @@ export function ChatHeader({
         <button
           type="button"
           onClick={() => setGpuModalOpen(true)}
-          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-[11px] font-mono shadow-subtle transition-all cursor-pointer ${isGpuConnected
+          suppressHydrationWarning
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-[11px] font-mono shadow-subtle transition-all cursor-pointer ${
+            mounted && isGpuConnected
               ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20"
               : isLight
                 ? "bg-[#ede8df] hover:bg-black/5 border-black/10 text-neutral-700"
                 : "bg-[#141414] hover:bg-white/5 border-white/10 text-neutral-300"
-            }`}
+          }`}
           title="Click to toggle or connect Kaggle GPU / Cloudflare URL"
         >
           <span
-            className={`w-1.5 h-1.5 rounded-full ${isGpuConnected ? "bg-emerald-400 animate-pulse" : "bg-blue-400"
-              }`}
+            className={`w-1.5 h-1.5 rounded-full ${
+              mounted && isGpuConnected ? "bg-emerald-400 animate-pulse" : "bg-blue-400"
+            }`}
           />
           <Cpu className="w-3.5 h-3.5" />
           <span className="inline font-medium">
-            {isGpuConnected ? "GPU (Kaggle)" : "24/7 (Render)"}
+            {mounted && isGpuConnected ? "GPU (Kaggle)" : "24/7 (Render)"}
           </span>
         </button>
 

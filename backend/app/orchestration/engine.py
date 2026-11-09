@@ -212,8 +212,10 @@ class WorkflowEngine:
             else:
                 result = self._execute(db, plan, decision.capability, image_contexts, audit, execution_id)
         except Exception as exc:  # noqa: BLE001
+            import logging
+            logging.getLogger(__name__).exception("Analysis execution failed: %s", exc)
             audit.record_event(execution_id, {"type": "error", "message": str(exc)})
-            return self._fail(db, execution, start, "Analysis failed while running the selected model.", status=ExecutionStatus.FAILED)
+            return self._fail(db, execution, start, f"Analysis failed: {exc}", status=ExecutionStatus.FAILED)
 
         latency_ms = int((time.monotonic() - start) * 1000)
         execution.status = ExecutionStatus.COMPLETED.value

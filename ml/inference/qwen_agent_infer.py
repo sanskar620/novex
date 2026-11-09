@@ -65,20 +65,34 @@ Other rules:
 """
 
 
-def get_qwen_agent(model_path: str) -> "QwenAgentInference":
+def _resolve_device(device: str | None = None) -> torch.device:
+    if device and device != "auto":
+        return torch.device(device)
+    import os
+    env_device = os.environ.get("DEVICE", "").lower()
+    if env_device in ("cuda", "cpu"):
+        if env_device == "cuda" and not torch.cuda.is_available():
+            return torch.device("cpu")
+        return torch.device(env_device)
+    return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
+def get_qwen_agent(model_path: str, device: str | None = None) -> "QwenAgentInference":
+    dev = _resolve_device(device)
+    key = f"{model_path}::{dev}"
     with _lock:
-        inst = _cache.get(model_path)
+        inst = _cache.get(key)
         if inst is None:
-            inst = QwenAgentInference(model_path)
+            inst = QwenAgentInference(model_path, device=str(dev))
             inst.load()
-            _cache[model_path] = inst
+            _cache[key] = inst
         return inst
 
 
 class QwenAgentInference:
-    def __init__(self, model_path: str, device: str = "cpu"):
+    def __init__(self, model_path: str, device: str | None = None):
         self.model_path = model_path
-        self.device = torch.device(device)
+        self.device = _resolve_device(device)
         self._model = None
         self._tokenizer = None
 

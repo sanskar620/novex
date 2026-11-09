@@ -67,17 +67,31 @@ def _referring_phrase(question: str) -> str:
 # itself and treat the tags as optional.
 _BOX_RE = re.compile(r"\[\[\s*([-\d\s.,]+?)\s*\]\]", re.DOTALL)
 
+def _resolve_device(device: str | None = None) -> torch.device:
+    if device and device != "auto":
+        return torch.device(device)
+    import os
+    env_device = os.environ.get("DEVICE", "").lower()
+    if env_device in ("cuda", "cpu"):
+        if env_device == "cuda" and not torch.cuda.is_available():
+            return torch.device("cpu")
+        return torch.device(env_device)
+    return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
 _lock = threading.Lock()
 _cache: dict[str, "InternVLInference"] = {}
 
 
-def get_internvl(model_path: str) -> "InternVLInference":
+def get_internvl(model_path: str, device: str | None = None) -> "InternVLInference":
+    dev = _resolve_device(device)
+    key = f"{model_path}::{dev}"
     with _lock:
-        inst = _cache.get(model_path)
+        inst = _cache.get(key)
         if inst is None:
-            inst = InternVLInference(model_path)
+            inst = InternVLInference(model_path, device=str(dev))
             inst.load()
-            _cache[model_path] = inst
+            _cache[key] = inst
         return inst
 
 
@@ -105,9 +119,9 @@ def _to_pil(image_array: np.ndarray) -> Image.Image:
 
 
 class InternVLInference:
-    def __init__(self, model_path: str, device: str = "cpu"):
+    def __init__(self, model_path: str, device: str | None = None):
         self.model_path = model_path
-        self.device = torch.device(device)
+        self.device = _resolve_device(device)
         self._model = None
         self._tokenizer = None
         self._transform = T.Compose(
@@ -149,12 +163,26 @@ class InternVLInference:
 
     @torch.no_grad()
     def _chat(self, pixel_values: torch.Tensor, prompt: str, max_new_tokens: int) -> str:
-        return self._model.chat(
-            self._tokenizer,
-            pixel_values,
-            prompt,
-            dict(max_new_tokens=max_new_tokens, do_sample=False),
-        ).strip()
+        gen_kwargs = {"max_new_tokens": max_new_tokens, "do_sample": False}
+        try:
+            out = self._model.chat(
+                self._tokenizer,
+                pixel_values,
+                prompt,
+                gen_kwargs,
+            )
+        except Exception:
+            from transformers import GenerationConfig
+            gc = GenerationConfig(max_new_tokens=max_new_tokens, do_sample=False)
+            out = self._model.chat(
+                self._tokenizer,
+                pixel_values,
+                prompt,
+                generation_config=gc,
+            )
+        if isinstance(out, tuple):
+            out = out[0]
+        return str(out).strip()
 
     def predict(self, task: str, image_array: np.ndarray, question: str = "") -> dict:
         if self._model is None:

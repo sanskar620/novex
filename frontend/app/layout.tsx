@@ -15,8 +15,8 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     // Keep "dark" as SSR default to prevent flash; ThemeProvider hydrates & overrides on client
-    <html lang="en" className="dark">
-      <body>
+    <html lang="en" className="dark" suppressHydrationWarning>
+      <body suppressHydrationWarning>
         <ThemeProvider>
           <Providers>{children}</Providers>
         </ThemeProvider>

@@ -31,8 +31,10 @@ interface AppState {
     metrics?: { label: string; value: string; change?: string }[];
   } | null;
   uiLanguage: UILanguage;
+  sessionRefreshTrigger: number;
 
   setUiLanguage: (language: UILanguage) => void;
+  triggerSessionRefresh: () => void;
   setSessionId: (id: string | null) => void;
   setActiveSessionTitle: (title: string) => void;
   addImageId: (id: string) => void;
@@ -69,8 +71,11 @@ export const useAppStore = create<AppState>()(
       activeEvidenceImage: null,
       evidenceModalData: null,
       uiLanguage: "en",
+      sessionRefreshTrigger: 0,
 
       setUiLanguage: (language) => set({ uiLanguage: language }),
+      triggerSessionRefresh: () =>
+        set((state) => ({ sessionRefreshTrigger: state.sessionRefreshTrigger + 1 })),
       setSessionId: (id) => set({ sessionId: id }),
       setActiveSessionTitle: (title) => set({ activeSessionTitle: title }),
       addImageId: (id) => set((state) => ({ imageIds: [...state.imageIds, id] })),

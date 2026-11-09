@@ -58,26 +58,26 @@ def _write_geotiff(path: Path, array: np.ndarray, band_descriptions: list[str] |
 
 def _base_scene(seed_offset: int) -> np.ndarray:
     rng = np.random.default_rng(42 + seed_offset)
-    # Simple synthetic land-cover composite: a water body (blue-ish),
-    # vegetation patch (green-ish), and built-up area (bright/gray).
-    r = rng.integers(60, 100, (HEIGHT, WIDTH), dtype=np.uint16)
-    g = rng.integers(60, 100, (HEIGHT, WIDTH), dtype=np.uint16)
-    b = rng.integers(60, 100, (HEIGHT, WIDTH), dtype=np.uint16)
+    # Realistic, smooth synthetic land-cover composite:
+    # background soil/terrain with subtle natural variation (not harsh noise)
+    r = np.full((HEIGHT, WIDTH), 80, dtype=np.uint16)
+    g = np.full((HEIGHT, WIDTH), 85, dtype=np.uint16)
+    b = np.full((HEIGHT, WIDTH), 80, dtype=np.uint16)
 
-    # water: bottom-left quadrant, blue-dominant
-    r[150:230, 20:100] = rng.integers(20, 40, (80, 80))
-    g[150:230, 20:100] = rng.integers(40, 70, (80, 80))
-    b[150:230, 20:100] = rng.integers(120, 180, (80, 80))
+    # water: bottom-left quadrant, deep clean blue
+    r[150:230, 20:100] = 30
+    g[150:230, 20:100] = 60
+    b[150:230, 20:100] = 160
 
-    # vegetation: top-right quadrant, green-dominant
-    r[20:100, 150:230] = rng.integers(30, 60, (80, 80))
-    g[20:100, 150:230] = rng.integers(120, 180, (80, 80))
-    b[20:100, 150:230] = rng.integers(30, 60, (80, 80))
+    # vegetation: top-right quadrant, vibrant healthy green
+    r[20:100, 150:230] = 35
+    g[20:100, 150:230] = 155
+    b[20:100, 150:230] = 40
 
-    # built-up: center, bright and low-saturation
-    r[100:150, 100:150] = rng.integers(180, 220, (50, 50))
-    g[100:150, 100:150] = rng.integers(175, 215, (50, 50))
-    b[100:150, 100:150] = rng.integers(170, 210, (50, 50))
+    # built-up: center, bright neutral urban reflection
+    r[100:150, 100:150] = 205
+    g[100:150, 100:150] = 200
+    b[100:150, 100:150] = 195
 
     return np.stack([r, g, b]).astype(np.uint16)
 

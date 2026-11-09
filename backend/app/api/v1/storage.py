@@ -14,5 +14,15 @@ def get_object(key: str) -> Response:
     if not storage.exists(key):
         raise HTTPException(status_code=404, detail="Object not found.")
     data = storage.get_bytes(key)
-    content_type = "image/png" if key.endswith(".png") else "application/octet-stream"
+    lower = key.lower()
+    if lower.endswith(".png"):
+        content_type = "image/png"
+    elif lower.endswith((".jpg", ".jpeg")):
+        content_type = "image/jpeg"
+    elif lower.endswith(".webp"):
+        content_type = "image/webp"
+    elif lower.endswith((".tif", ".tiff")):
+        content_type = "image/tiff"
+    else:
+        content_type = "application/octet-stream"
     return Response(content=data, media_type=content_type)

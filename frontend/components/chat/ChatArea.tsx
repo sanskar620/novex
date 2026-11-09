@@ -539,27 +539,31 @@ export function ChatArea({ initialSessionId }: ChatAreaProps) {
     }
   }, [sessionId, messages]);
 
-  async function ensureSession(): Promise<string> {
+  async function ensureSession(initialTitle?: string): Promise<string> {
     const hasRealSession = sessionId && sessionId !== "session-new" && !sessionId.startsWith("temp-") && !sessionId.startsWith("local-");
     if (hasRealSession) return sessionId as string;
+    const titleToUse = initialTitle || "New Satellite Query";
     try {
-      const created = await createSession("New Satellite Query");
+      const created = await createSession(titleToUse);
       setSessionId(created.id);
-      setActiveSessionTitle(created.title || "New Satellite Query");
+      setActiveSessionTitle(created.title || titleToUse);
+      useAppStore.getState().triggerSessionRefresh();
       return created.id;
     } catch {
       const fallbackId = `local-${Date.now()}`;
       if (!isTemporaryChat) {
         setSessionId(fallbackId);
+        setActiveSessionTitle(titleToUse);
         if (typeof window !== "undefined") {
           try {
             const list = JSON.parse(localStorage.getItem("satquery_local_sessions") || "[]");
-            list.unshift({ id: fallbackId, title: "Satellite Analysis", category: "Today" });
+            list.unshift({ id: fallbackId, title: titleToUse, category: "Today" });
             localStorage.setItem("satquery_local_sessions", JSON.stringify(list.slice(0, 30)));
           } catch {
             // ignore
           }
         }
+        useAppStore.getState().triggerSessionRefresh();
       }
       return fallbackId;
     }
@@ -615,6 +619,7 @@ export function ChatArea({ initialSessionId }: ChatAreaProps) {
   function appendAssistantMessage(result: ExecutionResult, richExtra?: Partial<Message>) {
     const content = richExtra?.content ?? result.answer ?? result.user_message ?? "The analysis did not return a message.";
     setLastResult(result);
+    useAppStore.getState().triggerSessionRefresh();
     setMessages((prev) => [
       ...prev,
       {
@@ -675,7 +680,9 @@ export function ChatArea({ initialSessionId }: ChatAreaProps) {
   }
 
   async function handleSend(text: string, incomingAttachments?: Attachment[]) {
-    const currentSessionId = await ensureSession();
+    const effectiveText = text || "Analyze attached satellite imagery.";
+    const generated = generateSessionTitle(effectiveText);
+    const currentSessionId = await ensureSession(generated);
     const attachmentsSnapshot = incomingAttachments && incomingAttachments.length > 0
       ? incomingAttachments
       : pendingAttachments.map((p) => ({
@@ -690,15 +697,14 @@ export function ChatArea({ initialSessionId }: ChatAreaProps) {
 
     clearPendingAttachments();
 
-    const effectiveText = text || "Analyze attached satellite imagery.";
-
     // Automatically name new session after the first user query so chat history is descriptive
     const activeTitle = useAppStore.getState().activeSessionTitle;
     if (!activeTitle || activeTitle === "New Satellite Query" || activeTitle === "New Analysis") {
-      const generated = generateSessionTitle(effectiveText);
       setActiveSessionTitle(generated);
       if (currentSessionId && !currentSessionId.startsWith("temp-")) {
-        renameSession(currentSessionId, generated).catch(() => {});
+        renameSession(currentSessionId, generated)
+          .then(() => useAppStore.getState().triggerSessionRefresh())
+          .catch(() => {});
         if (typeof window !== "undefined") {
           try {
             const cached = localStorage.getItem("satquery_conversations_cache");

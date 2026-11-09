@@ -65,9 +65,10 @@ export default function ChatDetailPage() {
     }
   }, [chatId, setSessionId]);
 
+  const sessionRefreshTrigger = useAppStore((s) => s.sessionRefreshTrigger);
   useEffect(() => {
     refreshSessions();
-  }, [sessionId]);
+  }, [sessionId, sessionRefreshTrigger]);
 
   function handleSelectConversation(id: string) {
     setSessionId(id);

@@ -265,7 +265,12 @@ class WorkflowEngine:
     ) -> ExecutionResult:
         raster = _preprocessor.load_single(ctx.local_path, cache_key=ctx.image.checksum)
         audit.record_step(execution_id, "preprocessing", "ok", {"operations": raster.operations})
-        evidence = [Evidence(type="original", storage_key=self.evidence_renderer.render_original(raster.array))]
+        original_storage_key = (
+            ctx.image.storage_key
+            if ctx.image and getattr(ctx.image, "format", "").lower() in ("png", "jpg", "jpeg", "webp")
+            else self.evidence_renderer.render_original(raster.array)
+        )
+        evidence = [Evidence(type="original", storage_key=original_storage_key)]
         audit.record_step(execution_id, "evidence_generation", "ok", {"evidence_count": len(evidence)})
 
         sensor = ctx.validation.metadata.sensor or ctx.source_provider or "the configured provider"
@@ -318,8 +323,13 @@ class WorkflowEngine:
             set_cached_output(task_name, adapter.model_id, adapter.version, [ctx.image.checksum], output, plan.raw_query)
         audit.record_step(execution_id, "running", "ok", {"model_id": adapter.model_id, "cache": "hit" if cache_hit else "miss"})
 
+        original_storage_key = (
+            ctx.image.storage_key
+            if ctx.image and getattr(ctx.image, "format", "").lower() in ("png", "jpg", "jpeg", "webp")
+            else self.evidence_renderer.render_original(raster.array)
+        )
         evidence_list: list[Evidence] = [
-            Evidence(type="original", storage_key=self.evidence_renderer.render_original(raster.array))
+            Evidence(type="original", storage_key=original_storage_key)
         ]
         for ev in output.get("evidence", []):
             storage_key = None
@@ -402,8 +412,13 @@ class WorkflowEngine:
             execution_id, "running", "ok", {"model_id": "verified_reference", "source": "curated_reference"}
         )
 
+        original_storage_key = (
+            ctx.image.storage_key
+            if ctx.image and getattr(ctx.image, "format", "").lower() in ("png", "jpg", "jpeg", "webp")
+            else self.evidence_renderer.render_original(raster.array)
+        )
         evidence_list: list[Evidence] = [
-            Evidence(type="original", storage_key=self.evidence_renderer.render_original(raster.array))
+            Evidence(type="original", storage_key=original_storage_key)
         ]
         for ev in match.evidence:
             storage_key = None
@@ -596,9 +611,19 @@ class WorkflowEngine:
             set_cached_output("optical_sar_fusion", adapter.model_id, adapter.version, fusion_checksums, output)
         audit.record_step(execution_id, "running", "ok", {"model_id": adapter.model_id, "cache": "hit" if cache_hit else "miss"})
 
+        opt_key = (
+            optical_ctx.image.storage_key
+            if optical_ctx.image and getattr(optical_ctx.image, "format", "").lower() in ("png", "jpg", "jpeg", "webp")
+            else self.evidence_renderer.render_original(optical_raster.array)
+        )
+        sar_key = (
+            sar_ctx.image.storage_key
+            if sar_ctx.image and getattr(sar_ctx.image, "format", "").lower() in ("png", "jpg", "jpeg", "webp")
+            else self.evidence_renderer.render_original(sar_raster.array)
+        )
         evidence_list = [
-            Evidence(type="original", storage_key=self.evidence_renderer.render_original(optical_raster.array), label="optical"),
-            Evidence(type="original", storage_key=self.evidence_renderer.render_original(sar_raster.array), label="sar"),
+            Evidence(type="original", storage_key=opt_key, label="optical"),
+            Evidence(type="original", storage_key=sar_key, label="sar"),
         ]
 
         modality_agreement = output.get("agreement", "not_applicable")

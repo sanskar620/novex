@@ -117,16 +117,23 @@ export default function WorkspacePage() {
   // Re-syncs whenever the active session changes -- covers both picking an
   // existing conversation (harmless no-op refresh) and a brand-new session
   // getting created on the first message of a chat (picks it up for the list).
+  const sessionRefreshTrigger = useAppStore((s) => s.sessionRefreshTrigger);
   useEffect(() => {
     refreshSessions();
-  }, [sessionId]);
+  }, [sessionId, sessionRefreshTrigger]);
 
   const activeSessionTitle = useAppStore((s) => s.activeSessionTitle);
   useEffect(() => {
     if (sessionId && activeSessionTitle && activeSessionTitle !== "New Satellite Query" && activeSessionTitle !== "New Analysis") {
-      setConversations((prev) =>
-        prev.map((c) => (c.id === sessionId ? { ...c, title: activeSessionTitle } : c))
-      );
+      setConversations((prev) => {
+        const updated = prev.map((c) => (c.id === sessionId ? { ...c, title: activeSessionTitle } : c));
+        if (typeof window !== "undefined") {
+          try {
+            localStorage.setItem("satquery_conversations_cache", JSON.stringify(updated));
+          } catch {}
+        }
+        return updated;
+      });
     }
   }, [sessionId, activeSessionTitle]);
 

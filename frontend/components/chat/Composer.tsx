@@ -180,17 +180,38 @@ export function Composer({
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
-  function handleAddPreset(sensor: string, name: string, url: string) {
-    addPendingAttachment({
-      id: `preset-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      previewUrl: url,
-      name,
-      sizeBytes: 14 * 1024 * 1024,
-      type: sensor.includes("SAR") ? "sar" : "optical",
-      sensor,
-      resolution: "10m",
-    });
+  async function handleAddPreset(sensor: string, name: string, url: string) {
     setMenuOpen(false);
+    try {
+      const res = await fetch(url);
+      const blob = await res.blob();
+      const isSar = sensor.includes("SAR");
+      const file = new File([blob], name, { type: "image/jpeg" });
+      if (onUploadFiles) {
+        onUploadFiles([file]);
+      } else {
+        addPendingAttachment({
+          id: `preset-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          file,
+          previewUrl: url,
+          name,
+          sizeBytes: blob.size || 14 * 1024 * 1024,
+          type: isSar ? "sar" : "optical",
+          sensor,
+          resolution: "10m",
+        });
+      }
+    } catch {
+      addPendingAttachment({
+        id: `preset-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        previewUrl: url,
+        name,
+        sizeBytes: 14 * 1024 * 1024,
+        type: sensor.includes("SAR") ? "sar" : "optical",
+        sensor,
+        resolution: "10m",
+      });
+    }
   }
 
   function handleDrop(e: React.DragEvent) {

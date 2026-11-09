@@ -121,6 +121,15 @@ export default function WorkspacePage() {
     refreshSessions();
   }, [sessionId]);
 
+  const activeSessionTitle = useAppStore((s) => s.activeSessionTitle);
+  useEffect(() => {
+    if (sessionId && activeSessionTitle && activeSessionTitle !== "New Satellite Query" && activeSessionTitle !== "New Analysis") {
+      setConversations((prev) =>
+        prev.map((c) => (c.id === sessionId ? { ...c, title: activeSessionTitle } : c))
+      );
+    }
+  }, [sessionId, activeSessionTitle]);
+
   function handleSelectConversation(id: string) {
     if (useAppStore.getState().isTemporaryChat) {
       resetConversationState();

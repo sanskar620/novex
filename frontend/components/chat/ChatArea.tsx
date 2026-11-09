@@ -5,7 +5,7 @@ import axios from "axios";
 import { Composer } from "./Composer";
 import { EmptyState } from "./EmptyState";
 import { MessageList, type MessageWithMeta } from "./MessageList";
-import { createSession, getAnalysis, getSession, submitQuery, uploadImage } from "@/lib/api";
+import { createSession, getAnalysis, getSession, renameSession, submitQuery, uploadImage } from "@/lib/api";
 import { INITIAL_CONVERSATIONS, MOCK_SESSIONS } from "@/lib/mock-data";
 import { useAppStore } from "@/lib/store";
 import { useTheme } from "@/lib/theme";
@@ -645,6 +645,35 @@ export function ChatArea({ initialSessionId }: ChatAreaProps) {
     ]);
   }
 
+  function generateSessionTitle(raw: string): string {
+    if (!raw || !raw.trim()) return "Satellite Analysis";
+    let cleaned = raw.trim();
+    const lower = cleaned.toLowerCase();
+    const starters = [
+      "what is visible in this image", "what is visible in", "what is shown in this image",
+      "describe this satellite image", "describe this image", "describe the image",
+      "what is this image of", "what is this", "tell me about this", "tell me about",
+      "where is the", "where is", "where are the", "where are", "can you locate",
+      "can you find", "can you show me", "can you show", "please find", "please locate",
+      "locate the", "locate", "find the", "find", "is there any", "are there any",
+      "is there", "are there", "detect the", "detect",
+    ];
+    for (const starter of starters) {
+      if (lower.startsWith(starter)) {
+        const remainder = cleaned.slice(starter.length).replace(/^[\s:,-?.]+/, "");
+        if (remainder.length >= 3) {
+          cleaned = remainder;
+        }
+        break;
+      }
+    }
+    cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+    if (cleaned.length > 36) {
+      cleaned = cleaned.slice(0, 34).replace(/\s+\S*$/, "") + "...";
+    }
+    return cleaned || "Satellite Analysis";
+  }
+
   async function handleSend(text: string, incomingAttachments?: Attachment[]) {
     const currentSessionId = await ensureSession();
     const attachmentsSnapshot = incomingAttachments && incomingAttachments.length > 0
@@ -662,6 +691,40 @@ export function ChatArea({ initialSessionId }: ChatAreaProps) {
     clearPendingAttachments();
 
     const effectiveText = text || "Analyze attached satellite imagery.";
+
+    // Automatically name new session after the first user query so chat history is descriptive
+    const activeTitle = useAppStore.getState().activeSessionTitle;
+    if (!activeTitle || activeTitle === "New Satellite Query" || activeTitle === "New Analysis") {
+      const generated = generateSessionTitle(effectiveText);
+      setActiveSessionTitle(generated);
+      if (currentSessionId && !currentSessionId.startsWith("temp-")) {
+        renameSession(currentSessionId, generated).catch(() => {});
+        if (typeof window !== "undefined") {
+          try {
+            const cached = localStorage.getItem("satquery_conversations_cache");
+            if (cached) {
+              const list = JSON.parse(cached);
+              if (Array.isArray(list)) {
+                localStorage.setItem(
+                  "satquery_conversations_cache",
+                  JSON.stringify(list.map((c: any) => (c.id === currentSessionId ? { ...c, title: generated } : c)))
+                );
+              }
+            }
+            const local = localStorage.getItem("satquery_local_sessions");
+            if (local) {
+              const list = JSON.parse(local);
+              if (Array.isArray(list)) {
+                localStorage.setItem(
+                  "satquery_local_sessions",
+                  JSON.stringify(list.map((c: any) => (c.id === currentSessionId ? { ...c, title: generated } : c)))
+                );
+              }
+            }
+          } catch {}
+        }
+      }
+    }
 
     // Append user message immediately
     const userMsg: MessageWithMeta = {

@@ -300,24 +300,28 @@ export function EvidenceViewer({ evidence, executionId, onOpenModal }: EvidenceV
               className="rounded-xl border border-white/10 bg-[#0a0a0a] p-3 flex flex-col justify-between group"
             >
               {imgUrl ? (
-                <div className="relative h-44 w-full rounded-lg bg-neutral-900 border border-white/5 overflow-hidden flex items-center justify-center">
+                <div className="relative min-h-[220px] sm:min-h-[280px] max-h-[400px] w-full rounded-xl bg-[#090909] border border-white/10 p-2 overflow-hidden flex items-center justify-center group">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={imgUrl}
                     alt={displayLabel}
-                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    className="max-h-full max-w-full object-contain rounded-lg transition-transform duration-200 group-hover:scale-[1.01]"
+                    style={{ imageRendering: "auto" }}
                     onError={(e) => {
                       (e.target as HTMLElement).style.display = "none";
                     }}
                   />
-                  <button
-                    type="button"
-                    onClick={() => setFullscreenImage({ url: imgUrl, label: displayLabel })}
-                    className="absolute top-2 right-2 rounded-lg bg-black/60 p-1.5 text-white opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm"
-                    aria-label="View Fullscreen"
-                  >
-                    <Maximize2 className="h-3.5 w-3.5" />
-                  </button>
+                  <div className="absolute top-3 right-3 flex items-center gap-1.5 opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                    <button
+                      type="button"
+                      onClick={() => setFullscreenImage({ url: imgUrl, label: displayLabel })}
+                      className="rounded-lg bg-black/80 p-1.5 text-white hover:bg-black transition-colors backdrop-blur-md border border-white/20 shadow-md cursor-pointer"
+                      title="View High-Resolution Fullscreen"
+                      aria-label="View Fullscreen"
+                    >
+                      <Maximize2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <div className="h-44 w-full rounded-lg bg-tech-grid border border-white/5 flex flex-col items-center justify-center p-4 text-center font-mono text-xs text-neutral-400">

@@ -32,11 +32,24 @@ class PreprocessedRaster:
 
 
 def read_array(path: str) -> tuple[np.ndarray, str | None, object | None]:
-    with rasterio.open(path) as ds:
-        array = ds.read(out_dtype="float64")
-        crs = str(ds.crs) if ds.crs else None
-        transform = ds.transform
-    return array, crs, transform
+    try:
+        with rasterio.open(path) as ds:
+            array = ds.read(out_dtype="float64")
+            crs = str(ds.crs) if ds.crs else None
+            transform = ds.transform
+        return array, crs, transform
+    except Exception:
+        # Fallback for standard non-georeferenced images (PNG, JPEG, WebP)
+        from PIL import Image as PILImage
+        with PILImage.open(path) as img:
+            rgb = img.convert("RGB")
+            arr = np.asarray(rgb, dtype=np.float64)
+            # Normalize to (bands, H, W) layout expected across preprocessing
+            if arr.ndim == 3:
+                arr = np.transpose(arr, (2, 0, 1))
+            elif arr.ndim == 2:
+                arr = arr[np.newaxis, ...]
+        return arr, None, None
 
 
 def reproject_to(

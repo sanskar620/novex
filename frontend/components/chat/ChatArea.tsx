@@ -408,7 +408,22 @@ export function ChatArea({ initialSessionId }: ChatAreaProps) {
       return;
     }
 
-    // 3. Try fetching from real backend
+    // 3. Check local storage cache first
+    if (typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem(`satquery_msgs_${sessionId}`);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setMessages(parsed);
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    // 4. Try fetching from real backend
     if (!sessionId || sessionId === "session-new" || sessionId.startsWith("local-") || sessionId.startsWith("temp-") || sessionId.startsWith("session-")) {
       return;
     }
@@ -435,6 +450,11 @@ export function ChatArea({ initialSessionId }: ChatAreaProps) {
         }
         const lastWithResult = [...withResults].reverse().find((m) => m.result);
         setLastResult(lastWithResult?.result ?? null);
+        if (typeof window !== "undefined") {
+          try {
+            localStorage.setItem(`satquery_msgs_${sessionId}`, JSON.stringify(withResults));
+          } catch {}
+        }
       })
       .catch(() => {
         if (cancelled) return;
@@ -444,6 +464,18 @@ export function ChatArea({ initialSessionId }: ChatAreaProps) {
       cancelled = true;
     };
   }, [sessionId, initialSessionId, setSessionId, setActiveSessionTitle, setLastResult]);
+
+  // Persist messages to localStorage whenever they update so chat history is never lost
+  useEffect(() => {
+    if (!sessionId || sessionId === "session-new" || sessionId.startsWith("temp-")) return;
+    if (messages.length > 0 && typeof window !== "undefined") {
+      try {
+        localStorage.setItem(`satquery_msgs_${sessionId}`, JSON.stringify(messages));
+      } catch {
+        // ignore
+      }
+    }
+  }, [sessionId, messages]);
 
   async function ensureSession(): Promise<string> {
     const hasRealSession = sessionId && sessionId !== "session-new" && !sessionId.startsWith("temp-") && !sessionId.startsWith("local-");
@@ -457,6 +489,15 @@ export function ChatArea({ initialSessionId }: ChatAreaProps) {
       const fallbackId = `local-${Date.now()}`;
       if (!isTemporaryChat) {
         setSessionId(fallbackId);
+        if (typeof window !== "undefined") {
+          try {
+            const list = JSON.parse(localStorage.getItem("satquery_local_sessions") || "[]");
+            list.unshift({ id: fallbackId, title: "Satellite Analysis", category: "Today" });
+            localStorage.setItem("satquery_local_sessions", JSON.stringify(list.slice(0, 30)));
+          } catch {
+            // ignore
+          }
+        }
       }
       return fallbackId;
     }

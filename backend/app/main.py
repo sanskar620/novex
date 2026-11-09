@@ -45,6 +45,15 @@ async def _keep_alive_loop() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Ensure database schema is automatically initialized on startup
+    try:
+        from app.db.base import Base
+        from app.db.session import engine
+        Base.metadata.create_all(bind=engine)
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).warning("Database auto-init notice: %s", exc)
+
     keep_alive_task = asyncio.create_task(_keep_alive_loop())
     try:
         yield
@@ -63,9 +72,14 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+cors_origins = list(
+    set(settings.cors_origins_list + ["https://novex-teal.vercel.app", "http://localhost:3000", "http://localhost:3001"])
+)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins_list,
+    allow_origins=cors_origins,
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

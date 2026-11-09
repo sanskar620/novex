@@ -34,13 +34,24 @@ export default function WorkspacePage() {
 
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
-  const [conversations, setConversations] = useState<ConversationSummaryItem[]>(
-    MOCK_SESSIONS.map((s) => ({
+  const [conversations, setConversations] = useState<ConversationSummaryItem[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem("satquery_conversations_cache");
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch {
+        // ignore
+      }
+    }
+    return MOCK_SESSIONS.map((s) => ({
       id: s.id,
       title: s.title,
       category: s.category,
-    }))
-  );
+    }));
+  });
 
   // Global keyboard shortcuts (Cmd+B to toggle sidebar, Cmd+N for new chat)
   useEffect(() => {
@@ -61,16 +72,45 @@ export default function WorkspacePage() {
   function refreshSessions() {
     listSessions()
       .then((sessions) => {
-        setConversations(
-          sessions.map((s) => ({
-            id: s.id,
-            title: s.title || "Untitled Analysis",
-            category: categorize(s.created_at),
-          }))
-        );
+        const fetched = sessions.map((s) => ({
+          id: s.id,
+          title: s.title || "Untitled Analysis",
+          category: categorize(s.created_at),
+        }));
+        if (typeof window !== "undefined") {
+          try {
+            const localSaved: ConversationSummaryItem[] = JSON.parse(
+              localStorage.getItem("satquery_local_sessions") || "[]"
+            );
+            const fetchedIds = new Set(fetched.map((f) => f.id));
+            const merged = [...fetched, ...localSaved.filter((l) => !fetchedIds.has(l.id))];
+            setConversations(merged);
+            localStorage.setItem("satquery_conversations_cache", JSON.stringify(merged));
+            return;
+          } catch {
+            // ignore
+          }
+        }
+        setConversations(fetched);
       })
       .catch(() => {
-        // Backend unreachable -- sidebar just shows no history until it's back.
+        // Backend unreachable -- restore from local cache or fallback list
+        if (typeof window !== "undefined") {
+          try {
+            const cached = localStorage.getItem("satquery_conversations_cache");
+            const localSaved = localStorage.getItem("satquery_local_sessions");
+            const combined = [
+              ...(localSaved ? JSON.parse(localSaved) : []),
+              ...(cached ? JSON.parse(cached) : []),
+            ];
+            if (combined.length > 0) {
+              const unique = Array.from(new Map(combined.map((c) => [c.id, c])).values());
+              setConversations(unique);
+            }
+          } catch {
+            // ignore
+          }
+        }
       });
   }
 

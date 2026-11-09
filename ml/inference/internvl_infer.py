@@ -116,8 +116,16 @@ class InternVLInference:
 
     def load(self) -> None:
         import torch.nn as nn
-        if not hasattr(nn.Module, "all_tied_weights_keys"):
-            nn.Module.all_tied_weights_keys = property(lambda self: {})
+
+        class _TiedKeysDescriptor:
+            def __get__(self, obj, cls=None):
+                if obj is None:
+                    return self
+                return getattr(obj, "_all_tied_keys_store", {})
+            def __set__(self, obj, val):
+                obj._all_tied_keys_store = val
+
+        nn.Module.all_tied_weights_keys = _TiedKeysDescriptor()
 
         from transformers import AutoModel, AutoTokenizer
 

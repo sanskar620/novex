@@ -2,7 +2,7 @@
 name = "satquery-backend"
 version = "0.1.0"
 description = "SatQuery AI backend — agentic remote-sensing analysis orchestrator"
-requires-python = ">=3.11,<3.13"
+requires-python = ">=3.11,<3.15"
 dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.30",

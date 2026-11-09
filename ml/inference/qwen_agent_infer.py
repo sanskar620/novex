@@ -84,9 +84,11 @@ class QwenAgentInference:
 
     def load(self) -> None:
         self._tokenizer = AutoTokenizer.from_pretrained(self.model_path)
+        dtype = torch.float16 if self.device.type == "cuda" else torch.float32
         self._model = AutoModelForCausalLM.from_pretrained(
             self.model_path,
-            dtype=torch.bfloat16,
+            torch_dtype=dtype,
+            low_cpu_mem_usage=True,
         )
         self._model.to(self.device)
         self._model.eval()

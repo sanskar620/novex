@@ -120,9 +120,10 @@ class InternVLInference:
         self._tokenizer = AutoTokenizer.from_pretrained(
             self.model_path, trust_remote_code=True, use_fast=False
         )
+        torch_dtype = torch.float16 if self.device.type == "cuda" else torch.float32
         self._model = AutoModel.from_pretrained(
             self.model_path,
-            dtype=torch.float32,
+            torch_dtype=torch_dtype,
             trust_remote_code=True,
             low_cpu_mem_usage=True,
             use_flash_attn=False,
@@ -131,7 +132,8 @@ class InternVLInference:
 
     def _pixel_values(self, pil: Image.Image) -> torch.Tensor:
         resized = pil.resize((_IMAGE_SIZE, _IMAGE_SIZE))
-        return self._transform(resized).unsqueeze(0).to(torch.float32).to(self.device)
+        dtype = torch.float16 if self.device.type == "cuda" else torch.float32
+        return self._transform(resized).unsqueeze(0).to(device=self.device, dtype=dtype)
 
     @torch.no_grad()
     def _chat(self, pixel_values: torch.Tensor, prompt: str, max_new_tokens: int) -> str:
